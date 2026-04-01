@@ -25,6 +25,25 @@ class Produto:
         """String representation."""
         status = "Disponível" if self.estoque > 0 else "Indisponível"
         return f"[{self.id_produto}] {self.nome} - R${self.preco:.2f} ({status}: {self.estoque} un.)"
+    
+
+    '''Aplicando conceito de herança : Produto Fisico - com peso e com calculo de frete '''
+class ProdFisico(Produto):
+    def __init__(self, id_produto, nome, preco, estoque, loja_nome, peso_kg):#definindo o que a minha nova classe recebe
+        super().__init__(id_produto, nome, preco, estoque, loja_nome) #chamando os conceitos do'mae'
+        self.peso_kg = peso_kg #atributo adicionado 
+    def calcular_frete(self):
+        valor_frete = self.peso_kg * 10.00 #calculo do frete 
+        return valor_frete
+
+
+class ProdDigital(Produto):
+    def __init__(self, id_produto, nome, preco, estoque, loja_nome):
+        super().__init__(id_produto, nome, preco, estoque, loja_nome)
+    def gerar_link(self): 
+        nome_url = self.nome.lower().replace(" ", "-")
+        link = f"https://newshopee.com.br/arquivos/{self.id_produto}/{nome_url}"
+        return f"Arquivo pronto para baixar {link}"
 
 class ItemCarrinho:
     def __init__(self, produto: Produto, quantidade: int):
@@ -84,6 +103,17 @@ class Usuario:
     def logout(self):
         self.logado = False
         return f"Usuário {self.nome} deslogado."
+    
+'''Aplicando herança em Usuários: Cliente VIP com benefícios'''
+class UsuarioVIP(Usuario):
+    def __init__(self, id_usuario, nome, email):
+        super().__init__(id_usuario, nome, email)
+        self.taxa_desconto = 0.10 # VIP tem 10% de desconto
+
+    # Função exclusiva para calcular desconto
+    def aplicar_desconto(self, valor_total):
+        desconto = valor_total * self.taxa_desconto
+        return valor_total - desconto
 
 class Loja:
     def __init__(self, nome_loja, vendedor_nome):
@@ -154,17 +184,41 @@ class Marketplace:
         usuario.carrinho.limpar()
         
         return f"Sucesso! {novo_pedido}"
+    
+
+'''aqui eu adicionei uma main para fazer testes'''
 
 if __name__ == "__main__":
-    app = Marketplace("NEW Shopee ")
+    app = Marketplace("NEW Shopee")
     
-    # Deixei um cliente e uma loja padrão apenas como "atalho" para testes rápidos
-    cliente = app.registrar_usuario("U01", "Ricardo", "ricardo@gmail.com")
+    # --- ÁREA DE TESTES (CONFIGURAÇÃO INICIAL) ---
+    
+    # Criamos o Usuário VIP diretamente para testar a herança
+    cliente = UsuarioVIP("U01", "Ricardo VIP", "ricardo.vip@gmail.com")
+    app.usuarios[cliente.id_usuario] = cliente 
     cliente.login()
     
+    # Criamos a loja e os produtos físicos (comuns)
     loja_padrao = app.criar_loja("NEW Shopee", "Vendedor Ricardo")
     loja_padrao.publicar_produto("1", "Fone Bluetooth", 100.00, 2)
     loja_padrao.publicar_produto("2", "Cabo USB-C", 20.00, 1)
+
+    # Criamos o Produto Digital (Ebook) para testar a herança de produto
+    meu_ebook = ProdDigital(id_produto="101", nome="Ebook Projeto Software", preco=45.00, estoque=10000, loja_nome="NewShopee-Digital")
+    # Importante: Adicione o ebook ao catálogo para ele aparecer no menu!
+    loja_padrao.catalogo.append(meu_ebook)
+
+    # --- PRINTS DE VALIDAÇÃO (O QUE APARECE NO TERMINAL) ---
+
+    print(f"\n--- TESTE DO USUÁRIO VIP (HERANÇA) ---")
+    print(f"O usuário {cliente.nome} tem acesso à função de desconto.")
+    print(f"Uma compra de R$ 200,00 cai para: R$ {cliente.aplicar_desconto(200.00):.2f}")
+    print("--------------------------------------")
+    
+    print("\n--- TESTE DO PRODUTO DIGITAL (HERANÇA) ---")
+    print(f"Produto: {meu_ebook.nome}") 
+    print(f"Link Gerado: {meu_ebook.gerar_link()}")
+    print("------------------------------------------\n")
 
     while True:
         print("\n" + "="*45)
