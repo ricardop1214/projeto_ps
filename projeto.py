@@ -4,52 +4,76 @@ class Produto:
     def __init__(self, id_produto, nome, preco, estoque, loja_nome):
         self.id_produto = id_produto
         self.nome = nome
-        self.preco = preco
-        self.estoque = estoque
         self.loja_nome = loja_nome
+        self.__preco = preco
+        self.__estoque = estoque
         
+    def get_preco(self):
+        return self.__preco
+        
+    def get_estoque(self):
+        return self.__estoque
+
     def is_disponivel(self, quantidade=1):
-        return self.estoque >= quantidade
+        return self.__estoque >= quantidade
     
-    """estoque indisponivel"""    
     def reduzir_estoque(self, quantidade):
         if self.is_disponivel(quantidade):
-            self.estoque -= quantidade
+            self.__estoque -= quantidade
             return True
         return False 
 
     def alterar_preco(self, novo_preco):
-        self.preco = novo_preco
+        if novo_preco > 0:
+            self.__preco = novo_preco
+        else:
+            print("Erro: O preço não pode ser negativo!")
+
+    def processar_entrega(self):
+        return "Aguardando separação no estoque."
 
     def __str__(self):
-        """String representation."""
-        status = "Disponível" if self.estoque > 0 else "Indisponível"
-        return f"[{self.id_produto}] {self.nome} - R${self.preco:.2f} ({status}: {self.estoque} un.)"
+        status = "Disponível" if self.__estoque > 0 else "Indisponível"
+        return f"[{self.id_produto}] {self.nome} - R${self.__preco:.2f} ({status}: {self.__estoque} un.)"
     
 
-    '''Aplicando conceito de herança : Produto Fisico - com peso e com calculo de frete '''
 class ProdFisico(Produto):
-    def __init__(self, id_produto, nome, preco, estoque, loja_nome, peso_kg):#definindo o que a minha nova classe recebe
-        super().__init__(id_produto, nome, preco, estoque, loja_nome) #chamando os conceitos do'mae'
-        self.peso_kg = peso_kg #atributo adicionado 
+    def __init__(self, id_produto, nome, preco, estoque, loja_nome, peso_kg):
+        super().__init__(id_produto, nome, preco, estoque, loja_nome) 
+        self.peso_kg = peso_kg 
+        
     def calcular_frete(self):
-        valor_frete = self.peso_kg * 10.00 #calculo do frete 
+        valor_frete = self.peso_kg * 10.00 
         return valor_frete
+
+    def processar_entrega(self):
+        return f"Saída para transportadora registrada. Frete: R${self.calcular_frete():.2f}"
+
+    def __str__(self):
+        return super().__str__() + f" [Peso: {self.peso_kg}kg]"
 
 
 class ProdDigital(Produto):
     def __init__(self, id_produto, nome, preco, estoque, loja_nome):
         super().__init__(id_produto, nome, preco, estoque, loja_nome)
+        
     def gerar_link(self): 
         nome_url = self.nome.lower().replace(" ", "-")
         link = f"https://newshopee.com.br/arquivos/{self.id_produto}/{nome_url}"
-        return f"Arquivo pronto para baixar {link}"
+        return link
+
+    def processar_entrega(self):
+        return f"Link de Acesso: {self.gerar_link()}"
+
+    def __str__(self):
+        return super().__str__() + " [PRODUTO DIGITAL]"
+
 
 class ItemCarrinho:
     def __init__(self, produto: Produto, quantidade: int):
         self.produto = produto
         self.quantidade = quantidade
-        self.preco_adicionado = produto.preco 
+        self.preco_adicionado = produto.get_preco() 
         
     def get_subtotal(self):
         return self.preco_adicionado * self.quantidade
@@ -64,7 +88,7 @@ class Carrinho:
             
         item = ItemCarrinho(produto, quantidade)
         self.itens.append(item)
-        return f"{quantidade}x {produto.nome} adicionado ao carrinho por R${produto.preco:.2f} cada."
+        return f"{quantidade}x {produto.nome} adicionado ao carrinho por R${produto.get_preco():.2f} cada."
         
     def remover(self, id_produto):
         for item in self.itens:
@@ -92,25 +116,26 @@ class Usuario:
         self.id_usuario = id_usuario
         self.nome = nome
         self.email = email
-        self.logado = False
+        self.__logado = False
         self.carrinho = Carrinho()
         self.historico_pedidos = []
         
+    def is_logado(self):
+        return self.__logado
+
     def login(self):
-        self.logado = True
+        self.__logado = True
         return f"Usuário {self.nome} logado com sucesso."
         
     def logout(self):
-        self.logado = False
+        self.__logado = False
         return f"Usuário {self.nome} deslogado."
     
-'''Aplicando herança em Usuários: Cliente VIP com benefícios'''
 class UsuarioVIP(Usuario):
     def __init__(self, id_usuario, nome, email):
         super().__init__(id_usuario, nome, email)
-        self.taxa_desconto = 0.10 # VIP tem 10% de desconto
+        self.taxa_desconto = 0.10 
 
-    # Função exclusiva para calcular desconto
     def aplicar_desconto(self, valor_total):
         desconto = valor_total * self.taxa_desconto
         return valor_total - desconto
@@ -131,7 +156,7 @@ class Marketplace:
         self.nome = nome
         self.usuarios = {}
         self.lojas = {}
-        self.contador_pedidos = 1000
+        self.__contador_pedidos = 1000
         
     def registrar_usuario(self, id_user, nome, email):
         user = Usuario(id_user, nome, email)
@@ -150,75 +175,62 @@ class Marketplace:
                 if termo.lower() in produto.nome.lower():
                     resultados.append(produto)
         return resultados
-    """Evita compras de produtos sem estoque"""
+
     def finalizar_compra(self, id_usuario):
         usuario = self.usuarios.get(id_usuario)
         
-        if not usuario or not usuario.logado:
+        if not usuario or not usuario.is_logado():
             return "Erro: Usuário precisa estar logado para comprar."
             
         if not usuario.carrinho.itens:
             return "Erro: Carrinho vazio."
 
         total_pedido = 0
-        """Atualiza o estoque"""
         for item in usuario.carrinho.itens:
             produto = item.produto
             
+            # SOLUÇÃO PROBLEMA 2: Trava de sistema vendendo sem estoque
             if not produto.is_disponivel(item.quantidade):
                 return f"Falha no pedido: O produto '{produto.nome}' está sem estoque suficiente."
                 
-            """Validação automática de preço"""
-            if item.preco_adicionado != produto.preco: 
-                return f"DIVERGÊNCIA DE PREÇO: O valor de '{produto.nome}' mudou de R${item.preco_adicionado:.2f} para R${produto.preco:.2f}. Compra bloqueada para evitar prejuízo."
+            # SOLUÇÃO PROBLEMA 1: Trava de propaganda enganosa / mudança de preço
+            if item.preco_adicionado != produto.get_preco(): 
+                return f"DIVERGÊNCIA DE PREÇO: O valor de '{produto.nome}' mudou. Compra bloqueada."
             
             total_pedido += item.get_subtotal()
 
+        msg_vip = ""
+        if isinstance(usuario, UsuarioVIP):
+            total_pedido = usuario.aplicar_desconto(total_pedido)
+            msg_vip = "\n BENEFÍCIO VIP: 10% de desconto aplicado com sucesso!"
+
+        detalhes_entrega = ""
         for item in usuario.carrinho.itens:
             item.produto.reduzir_estoque(item.quantidade)
+            detalhes_entrega += f"\n- {item.produto.nome}: {item.produto.processar_entrega()}"
 
-        novo_pedido = Pedido(self.contador_pedidos, list(usuario.carrinho.itens), total_pedido)
+        novo_pedido = Pedido(self.__contador_pedidos, list(usuario.carrinho.itens), total_pedido)
         usuario.historico_pedidos.append(novo_pedido)
-        self.contador_pedidos += 1
+        self.__contador_pedidos += 1
         
         usuario.carrinho.limpar()
         
-        return f"Sucesso! {novo_pedido}"
+        return f"Sucesso! {novo_pedido}{msg_vip}{detalhes_entrega}"
     
-
-'''aqui eu adicionei uma main para fazer testes'''
 
 if __name__ == "__main__":
     app = Marketplace("NEW Shopee")
     
-    # --- ÁREA DE TESTES (CONFIGURAÇÃO INICIAL) ---
     
-    # Criamos o Usuário VIP diretamente para testar a herança
-    cliente = UsuarioVIP("U01", "Ricardo VIP", "ricardo.vip@gmail.com")
-    app.usuarios[cliente.id_usuario] = cliente 
+    cliente = app.registrar_usuario("U01", "Ricardo", "ricardo@gmail.com")
     cliente.login()
     
-    # Criamos a loja e os produtos físicos (comuns)
     loja_padrao = app.criar_loja("NEW Shopee", "Vendedor Ricardo")
     loja_padrao.publicar_produto("1", "Fone Bluetooth", 100.00, 2)
     loja_padrao.publicar_produto("2", "Cabo USB-C", 20.00, 1)
 
-    # Criamos o Produto Digital (Ebook) para testar a herança de produto
     meu_ebook = ProdDigital(id_produto="101", nome="Ebook Projeto Software", preco=45.00, estoque=10000, loja_nome="NewShopee-Digital")
-    # Importante: Adicione o ebook ao catálogo para ele aparecer no menu!
     loja_padrao.catalogo.append(meu_ebook)
-
-    # --- PRINTS DE VALIDAÇÃO (O QUE APARECE NO TERMINAL) ---
-
-    print(f"\n--- TESTE DO USUÁRIO VIP (HERANÇA) ---")
-    print(f"O usuário {cliente.nome} tem acesso à função de desconto.")
-    print(f"Uma compra de R$ 200,00 cai para: R$ {cliente.aplicar_desconto(200.00):.2f}")
-    print("--------------------------------------")
-    
-    print("\n--- TESTE DO PRODUTO DIGITAL (HERANÇA) ---")
-    print(f"Produto: {meu_ebook.nome}") 
-    print(f"Link Gerado: {meu_ebook.gerar_link()}")
-    print("------------------------------------------\n")
 
     while True:
         print("\n" + "="*45)
@@ -227,8 +239,8 @@ if __name__ == "__main__":
         print("1 - Ver catálogo de produtos")
         print("2 - Adicionar produto ao carrinho")
         print("3 - Ver carrinho")
-        print("4 - Simular alteração de preço (Testar trava)")
-        print("5 - Finalizar compra")
+        print("4 - Simular alteração de preço (Testar trava de Propaganda)")
+        print("5 - Finalizar compra (Testar trava de Estoque)")
         print("6 - Ver histórico de pedidos")
         print("\n--- ÁREA DO VENDEDOR ---")
         print("7 - Criar nova loja")
@@ -256,7 +268,6 @@ if __name__ == "__main__":
             id_prod = input("Digite o ID do produto: ")
             try:
                 qtd = int(input("Digite a quantidade: "))
-                # Busca o produto em todas as lojas
                 produto_encontrado = None
                 for loja in app.lojas.values():
                     for p in loja.catalogo:
@@ -294,7 +305,7 @@ if __name__ == "__main__":
                 if produto_encontrado:
                     produto_encontrado.alterar_preco(novo_preco)
                     print(f"Preço do '{produto_encontrado.nome}' alterado para R${novo_preco:.2f}.")
-                    print("Dica: Tente finalizar a compra agora para ver o bloqueio atuar.")
+                    print("Dica: Tente finalizar a compra (Opção 5) agora para ver o bloqueio atuar.")
                 else:
                     print("Produto não encontrado.")
             except ValueError:
